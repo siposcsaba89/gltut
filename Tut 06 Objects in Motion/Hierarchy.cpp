@@ -243,15 +243,15 @@ glm::mat3 RotateZ(float fAngDeg)
 	return theMat;
 }
 
-class MatrixStack
+class TransformMatrix
 {
 public:
-	MatrixStack()
+	TransformMatrix()
 		: m_currMat(1.0f)
 	{
 	}
 
-	const glm::mat4 &Top()
+	const glm::mat4 &Current()
 	{
 		return m_currMat;
 	}
@@ -289,20 +289,8 @@ public:
 		m_currMat = m_currMat * translateMat;
 	}
 
-	void Push()
-	{
-		m_matrices.push(m_currMat);
-	}
-
-	void Pop()
-	{
-		m_currMat = m_matrices.top();
-		m_matrices.pop();
-	}
-
 private:
 	glm::mat4 m_currMat;
-	std::stack<glm::mat4> m_matrices;
 };
 
 struct Node
@@ -318,39 +306,40 @@ struct Node
 	const glm::vec3& pose_model_,
 	bool render_this = true)
 	: pos_base(pose_base)
-	, yaw(yaw_)
-	, roll(roll_)
-	, pitch(pitch_)
-	, size(scale)
 	, pos_model(pose_model_)
+	, size(scale)
+	, yaw(yaw_)
+	, pitch(pitch_)
+	, roll(roll_)
 	, render_this_node(render_this)
 	{
 
 	}
 	Node(){}
 
-	void render(MatrixStack& modelToCameraStack)
+	void render(const glm::mat4& T_camera_model)
 	{
-		modelToCameraStack.Translate(pos_base);
-		modelToCameraStack.RotateY(yaw);
-		modelToCameraStack.RotateX(pitch);
-		modelToCameraStack.RotateZ(roll);
+		TransformMatrix stack;
+		stack.Translate(pos_base);
+		stack.RotateY(yaw);
+		stack.RotateX(pitch);
+		stack.RotateZ(roll);
 		
-		modelToCameraStack.Push();
-		modelToCameraStack.Translate(pos_model);
-		modelToCameraStack.Scale(size);
+		glm::mat4 T_camera_world = T_camera_model * stack.Current();
 
 		if (render_this_node)
 		{
-			glUniformMatrix4fv(modelToCameraMatrixUnif, 1, GL_FALSE, glm::value_ptr(modelToCameraStack.Top()));
+			TransformMatrix stack2;
+			stack2.Translate(pos_model);
+			stack2.Scale(size);
+			glm::mat4 T_word_model = stack2.Current();
+			glm::mat4 T_camera_curr_model = T_camera_world * T_word_model;
+			glUniformMatrix4fv(modelToCameraMatrixUnif, 1, GL_FALSE, glm::value_ptr(T_camera_curr_model));
 			glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
 		}
-		modelToCameraStack.Pop();
 		for (auto& c : children)
 		{
-			modelToCameraStack.Push();
-			c->render(modelToCameraStack);
-			modelToCameraStack.Pop();
+			c->render(T_camera_world);
 		}
 	}
 
@@ -367,19 +356,19 @@ class Hierarchy
 {
 public:
 	Hierarchy()
-		: scene(glm::vec3(3.0f, -5.0f, -40.0f), -45.0f, 0.0f, 0.0f, glm::vec3(1.0f), glm::vec3(0.0f), false)
-		, base_left(glm::vec3(0.0f), 0.0f, 0.0f, 0.0f, glm::vec3(1.0f, 1.0f, 3.0f), glm::vec3(2.0f, 0.0f, 0.0f))
-		, base_right(glm::vec3(0.0f, 0.0f, 0.0f), 0.0f, 0.0f, 0.0f,glm::vec3(1.0f, 1.0f, 3.0f), glm::vec3(-2.0f, 0.0f, 0.0f))
-		, sizeUpperArm(9.0f)
-		, upper_arm(glm::vec3(0.0), 0.0f, 0.0f, -33.75f, glm::vec3(1.0f, 1.0f, sizeUpperArm / 2.0f), glm::vec3(0.0f, 0.0f, (sizeUpperArm / 2.0f) - 1.0f))
+		: sizeUpperArm(9.0f)
 		, widthLowerArm(1.5f)
 		, lenLowerArm(5.0f)
-		, lower_arm(glm::vec3(0.0f, 0.0f, 8.0f), 0.0f, 0.0f, 146.25f, glm::vec3(widthLowerArm / 2.0f, widthLowerArm / 2.0f, lenLowerArm / 2.0f), glm::vec3(0.0f, 0.0f, lenLowerArm / 2.0f))
 		, lenWrist(2.0f)
 		, widthWrist(2.0f)
-		, wrist(glm::vec3(0.0f, 0.0f, 5.0f), 0.0f, 0.0f, 67.5f, glm::vec3(widthWrist / 2.0f, widthWrist/ 2.0f, lenWrist / 2.0f), glm::vec3(0.0f))
 		, lenFinger(2.0f)
 		, widthFinger(0.5f)
+		, scene(glm::vec3(3.0f, -5.0f, -40.0f), -45.0f, 0.0f, 0.0f, glm::vec3(1.0f), glm::vec3(0.0f), false)
+		, base_left(glm::vec3(0.0f), 0.0f, 0.0f, 0.0f, glm::vec3(1.0f, 1.0f, 3.0f), glm::vec3(2.0f, 0.0f, 0.0f))
+		, base_right(glm::vec3(0.0f, 0.0f, 0.0f), 0.0f, 0.0f, 0.0f,glm::vec3(1.0f, 1.0f, 3.0f), glm::vec3(-2.0f, 0.0f, 0.0f))
+		, upper_arm(glm::vec3(0.0), 0.0f, 0.0f, -33.75f, glm::vec3(1.0f, 1.0f, sizeUpperArm / 2.0f), glm::vec3(0.0f, 0.0f, (sizeUpperArm / 2.0f) - 1.0f))
+		, lower_arm(glm::vec3(0.0f, 0.0f, 8.0f), 0.0f, 0.0f, 146.25f, glm::vec3(widthLowerArm / 2.0f, widthLowerArm / 2.0f, lenLowerArm / 2.0f), glm::vec3(0.0f, 0.0f, lenLowerArm / 2.0f))
+		, wrist(glm::vec3(0.0f, 0.0f, 5.0f), 0.0f, 0.0f, 67.5f, glm::vec3(widthWrist / 2.0f, widthWrist/ 2.0f, lenWrist / 2.0f), glm::vec3(0.0f))
 		, left_upper_finger(glm::vec3(1.0f, 0.0f, 1.0f),  180.0f, 0.0f, 0.0f, glm::vec3(widthFinger / 2.0f, widthFinger/ 2.0f, lenFinger / 2.0f), glm::vec3(0.0f, 0.0f, lenFinger / 2.0f))
 		, left_lower_finger(glm::vec3(0.0f, 0.0f, lenFinger),  -45.0f, 0.0f, 0.0f, glm::vec3(widthFinger / 2.0f, widthFinger/ 2.0f, lenFinger / 2.0f), glm::vec3(0.0f, 0.0f, lenFinger / 2.0f))
 		, right_upper_finger(glm::vec3(-1.0f, 0.0f, 1.0f),  -180.0f, 0.0f, 0.0f, glm::vec3(widthFinger / 2.0f, widthFinger/ 2.0f, lenFinger / 2.0f), glm::vec3(0.0f, 0.0f, lenFinger / 2.0f))
@@ -398,11 +387,11 @@ public:
 
 	void Draw()
 	{
-		MatrixStack modelToCameraStack;
+		TransformMatrix modelToCameraStack;
 
 		glUseProgram(theProgram);
 		glBindVertexArray(vao);
-		scene.render(modelToCameraStack);
+		scene.render(glm::mat4(1.0f));
 		glBindVertexArray(0);
 		glUseProgram(0);
 	}
