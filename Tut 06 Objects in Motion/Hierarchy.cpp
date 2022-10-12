@@ -305,33 +305,96 @@ private:
 	std::stack<glm::mat4> m_matrices;
 };
 
+struct Node
+{
+	Node *parent = nullptr;
+	std::vector<Node *> children;
+
+	Node(const glm::vec3& pose_base,
+	float yaw_,
+	float roll_,
+	float pitch_,
+	const glm::vec3& scale,
+	const glm::vec3& pose_model_,
+	bool render_this = true)
+	: pos_base(pose_base)
+	, yaw(yaw_)
+	, roll(roll_)
+	, pitch(pitch_)
+	, size(scale)
+	, pos_model(pose_model_)
+	, render_this_node(render_this)
+	{
+
+	}
+	Node(){}
+
+	void render(MatrixStack& modelToCameraStack)
+	{
+		modelToCameraStack.Translate(pos_base);
+		modelToCameraStack.RotateY(yaw);
+		modelToCameraStack.RotateX(pitch);
+		modelToCameraStack.RotateZ(roll);
+		
+		modelToCameraStack.Push();
+		modelToCameraStack.Translate(pos_model);
+		modelToCameraStack.Scale(size);
+
+		if (render_this_node)
+		{
+			glUniformMatrix4fv(modelToCameraMatrixUnif, 1, GL_FALSE, glm::value_ptr(modelToCameraStack.Top()));
+			glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
+		}
+		modelToCameraStack.Pop();
+		for (auto& c : children)
+		{
+			modelToCameraStack.Push();
+			c->render(modelToCameraStack);
+			modelToCameraStack.Pop();
+		}
+	}
+
+	glm::vec3 pos_base = glm::vec3(0.0f);
+	glm::vec3 pos_model = glm::vec3(0.0f);
+	glm::vec3 size = glm::vec3(0.0f);
+	float yaw = 0.0f;
+	float pitch = 0.0f;
+	float roll = 0.0f;
+	bool render_this_node = true;
+};
+
 class Hierarchy
 {
 public:
 	Hierarchy()
-		: posBase(glm::vec3(3.0f, -5.0f, -40.0f))
-		, angBase(-45.0f)
-		, posBaseLeft(glm::vec3(2.0f, 0.0f, 0.0f))
-		, posBaseRight(glm::vec3(-2.0f, 0.0f, 0.0f))
-		, scaleBaseZ(3.0f)
-		, angUpperArm(-33.75f)
+		: scene(glm::vec3(3.0f, -5.0f, -40.0f), -45.0f, 0.0f, 0.0f, glm::vec3(1.0f), glm::vec3(0.0f), false)
+		, base_left(glm::vec3(0.0f), 0.0f, 0.0f, 0.0f, glm::vec3(1.0f, 1.0f, 3.0f), glm::vec3(2.0f, 0.0f, 0.0f))
+		, base_right(glm::vec3(0.0f, 0.0f, 0.0f), 0.0f, 0.0f, 0.0f,glm::vec3(1.0f, 1.0f, 3.0f), glm::vec3(-2.0f, 0.0f, 0.0f))
 		, sizeUpperArm(9.0f)
-		, posLowerArm(glm::vec3(0.0f, 0.0f, 8.0f))
-		, angLowerArm(146.25f)
-		, lenLowerArm(5.0f)
+		, upper_arm(glm::vec3(0.0), 0.0f, 0.0f, -33.75f, glm::vec3(1.0f, 1.0f, sizeUpperArm / 2.0f), glm::vec3(0.0f, 0.0f, (sizeUpperArm / 2.0f) - 1.0f))
 		, widthLowerArm(1.5f)
-		, posWrist(glm::vec3(0.0f, 0.0f, 5.0f))
-		, angWristRoll(0.0f)
-		, angWristPitch(67.5f)
+		, lenLowerArm(5.0f)
+		, lower_arm(glm::vec3(0.0f, 0.0f, 8.0f), 0.0f, 0.0f, 146.25f, glm::vec3(widthLowerArm / 2.0f, widthLowerArm / 2.0f, lenLowerArm / 2.0f), glm::vec3(0.0f, 0.0f, lenLowerArm / 2.0f))
 		, lenWrist(2.0f)
 		, widthWrist(2.0f)
-		, posLeftFinger(glm::vec3(1.0f, 0.0f, 1.0f))
-		, posRightFinger(glm::vec3(-1.0f, 0.0f, 1.0f))
-		, angFingerOpen(180.0f)
+		, wrist(glm::vec3(0.0f, 0.0f, 5.0f), 0.0f, 0.0f, 67.5f, glm::vec3(widthWrist / 2.0f, widthWrist/ 2.0f, lenWrist / 2.0f), glm::vec3(0.0f))
 		, lenFinger(2.0f)
 		, widthFinger(0.5f)
-		, angLowerFinger(45.0f)
-	{}
+		, left_upper_finger(glm::vec3(1.0f, 0.0f, 1.0f),  180.0f, 0.0f, 0.0f, glm::vec3(widthFinger / 2.0f, widthFinger/ 2.0f, lenFinger / 2.0f), glm::vec3(0.0f, 0.0f, lenFinger / 2.0f))
+		, left_lower_finger(glm::vec3(0.0f, 0.0f, lenFinger),  -45.0f, 0.0f, 0.0f, glm::vec3(widthFinger / 2.0f, widthFinger/ 2.0f, lenFinger / 2.0f), glm::vec3(0.0f, 0.0f, lenFinger / 2.0f))
+		, right_upper_finger(glm::vec3(-1.0f, 0.0f, 1.0f),  -180.0f, 0.0f, 0.0f, glm::vec3(widthFinger / 2.0f, widthFinger/ 2.0f, lenFinger / 2.0f), glm::vec3(0.0f, 0.0f, lenFinger / 2.0f))
+		, right_lower_finger(glm::vec3(0.0f, 0.0f, lenFinger),  45.0f, 0.0f, 0.0f, glm::vec3(widthFinger / 2.0f, widthFinger/ 2.0f, lenFinger / 2.0f), glm::vec3(0.0f, 0.0f, lenFinger / 2.0f))
+	{
+		scene.children.push_back(&base_left);
+		scene.children.push_back(&base_right);
+		scene.children.push_back(&upper_arm);
+		upper_arm.children.push_back(&lower_arm);
+		lower_arm.children.push_back(&wrist);
+		wrist.children.push_back(&left_upper_finger);
+		left_upper_finger.children.push_back(&left_lower_finger);
+		wrist.children.push_back(&right_upper_finger);
+		right_upper_finger.children.push_back(&right_lower_finger);
+	}
 
 	void Draw()
 	{
@@ -339,33 +402,7 @@ public:
 
 		glUseProgram(theProgram);
 		glBindVertexArray(vao);
-
-		modelToCameraStack.Translate(posBase);
-		modelToCameraStack.RotateY(angBase);
-
-		//Draw left base.
-		{
-			modelToCameraStack.Push();
-			modelToCameraStack.Translate(posBaseLeft);
-			modelToCameraStack.Scale(glm::vec3(1.0f, 1.0f, scaleBaseZ));
-			glUniformMatrix4fv(modelToCameraMatrixUnif, 1, GL_FALSE, glm::value_ptr(modelToCameraStack.Top()));
-			glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
-			modelToCameraStack.Pop();
-		}
-
-		//Draw right base.
-		{
-			modelToCameraStack.Push();
-			modelToCameraStack.Translate(posBaseRight);
-			modelToCameraStack.Scale(glm::vec3(1.0f, 1.0f, scaleBaseZ));
-			glUniformMatrix4fv(modelToCameraMatrixUnif, 1, GL_FALSE, glm::value_ptr(modelToCameraStack.Top()));
-			glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
-			modelToCameraStack.Pop();
-		}
-
-		//Draw main arm.
-		DrawUpperArm(modelToCameraStack);
-
+		scene.render(modelToCameraStack);
 		glBindVertexArray(0);
 		glUseProgram(0);
 	}
@@ -375,195 +412,80 @@ public:
 
 	void AdjBase(bool bIncrement)
 	{
-		angBase += bIncrement ? STANDARD_ANGLE_INCREMENT : -STANDARD_ANGLE_INCREMENT;
-		angBase = fmodf(angBase, 360.0f);
+		scene.yaw += bIncrement ? STANDARD_ANGLE_INCREMENT : -STANDARD_ANGLE_INCREMENT;
+		scene.yaw = fmodf(scene.yaw, 360.0f);
 	}
 
 	void AdjUpperArm(bool bIncrement)
 	{
-		angUpperArm += bIncrement ? STANDARD_ANGLE_INCREMENT : -STANDARD_ANGLE_INCREMENT;
-		angUpperArm = Clamp(angUpperArm, -90.0f, 0.0f);
+		
+		upper_arm.pitch += bIncrement ? STANDARD_ANGLE_INCREMENT : -STANDARD_ANGLE_INCREMENT;
+		upper_arm.pitch = Clamp(upper_arm.pitch, -90.0f, 0.0f);
 	}
 
 	void AdjLowerArm(bool bIncrement)
 	{
-		angLowerArm += bIncrement ? STANDARD_ANGLE_INCREMENT : -STANDARD_ANGLE_INCREMENT;
-		angLowerArm = Clamp(angLowerArm, 0.0f, 146.25f);
+		
+		lower_arm.pitch += bIncrement ? STANDARD_ANGLE_INCREMENT : -STANDARD_ANGLE_INCREMENT;
+		lower_arm.pitch = Clamp(lower_arm.pitch, 0.0f, 146.25f);
 	}
 
 	void AdjWristPitch(bool bIncrement)
 	{
-		angWristPitch += bIncrement ? STANDARD_ANGLE_INCREMENT : -STANDARD_ANGLE_INCREMENT;
-		angWristPitch = Clamp(angWristPitch, 0.0f, 90.0f);
+		wrist.pitch += bIncrement ? STANDARD_ANGLE_INCREMENT : -STANDARD_ANGLE_INCREMENT;
+		wrist.pitch = Clamp(wrist.pitch, 0.0f, 90.0f);
 	}
 
 	void AdjWristRoll(bool bIncrement)
 	{
-		angWristRoll += bIncrement ? STANDARD_ANGLE_INCREMENT : -STANDARD_ANGLE_INCREMENT;
-		angWristRoll = fmodf(angWristRoll, 360.0f);
+		wrist.roll += bIncrement ? STANDARD_ANGLE_INCREMENT : -STANDARD_ANGLE_INCREMENT;
+		wrist.roll = fmodf(wrist.roll, 360.0f);
 	}
 
 	void AdjFingerOpen(bool bIncrement)
 	{
-		angFingerOpen += bIncrement ? SMALL_ANGLE_INCREMENT : -SMALL_ANGLE_INCREMENT;
-		angFingerOpen = Clamp(angFingerOpen, 9.0f, 180.0f);
+		left_upper_finger.yaw += bIncrement ? SMALL_ANGLE_INCREMENT : -SMALL_ANGLE_INCREMENT;
+		left_upper_finger.yaw = Clamp(left_upper_finger.yaw, 9.0f, 180.0f);
+		right_upper_finger.yaw -= bIncrement ? SMALL_ANGLE_INCREMENT : -SMALL_ANGLE_INCREMENT;
+		right_upper_finger.yaw = Clamp(right_upper_finger.yaw,-180.0f, -9.0f);
+		//right_upper_finger.yaw =-left_upper_finger.yaw;
 	}
 
 	void WritePose()
 	{
-		printf("angBase:\t%f\n", angBase);
-		printf("angUpperArm:\t%f\n", angUpperArm);
-		printf("angLowerArm:\t%f\n", angLowerArm);
-		printf("angWristPitch:\t%f\n", angWristPitch);
-		printf("angWristRoll:\t%f\n", angWristRoll);
-		printf("angFingerOpen:\t%f\n", angFingerOpen);
+		printf("angBase:\t%f\n", scene.yaw);
+		printf("angUpperArm:\t%f\n", upper_arm.pitch);
+		printf("angLowerArm:\t%f\n", lower_arm.pitch);
+		printf("angWristPitch:\t%f\n", wrist.pitch);
+		printf("angWristRoll:\t%f\n", wrist.roll);
+		printf("angFingerOpen:\t%f\n", left_upper_finger.yaw);
 		printf("\n");
 	}
 
 private:
-	void DrawFingers(MatrixStack &modelToCameraStack)
-	{
-		//Draw left finger
-		modelToCameraStack.Push();
-		modelToCameraStack.Translate(posLeftFinger);
-		modelToCameraStack.RotateY(angFingerOpen);
-
-		modelToCameraStack.Push();
-		modelToCameraStack.Translate(glm::vec3(0.0f, 0.0f, lenFinger / 2.0f));
-		modelToCameraStack.Scale(glm::vec3(widthFinger / 2.0f, widthFinger/ 2.0f, lenFinger / 2.0f));
-		glUniformMatrix4fv(modelToCameraMatrixUnif, 1, GL_FALSE, glm::value_ptr(modelToCameraStack.Top()));
-		glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
-		modelToCameraStack.Pop();
-
-		{
-			//Draw left lower finger
-			modelToCameraStack.Push();
-			modelToCameraStack.Translate(glm::vec3(0.0f, 0.0f, lenFinger));
-			modelToCameraStack.RotateY(-angLowerFinger);
-
-			modelToCameraStack.Push();
-			modelToCameraStack.Translate(glm::vec3(0.0f, 0.0f, lenFinger / 2.0f));
-			modelToCameraStack.Scale(glm::vec3(widthFinger / 2.0f, widthFinger/ 2.0f, lenFinger / 2.0f));
-			glUniformMatrix4fv(modelToCameraMatrixUnif, 1, GL_FALSE, glm::value_ptr(modelToCameraStack.Top()));
-			glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
-			modelToCameraStack.Pop();
-
-			modelToCameraStack.Pop();
-		}
-
-		modelToCameraStack.Pop();
-
-		//Draw right finger
-		modelToCameraStack.Push();
-		modelToCameraStack.Translate(posRightFinger);
-		modelToCameraStack.RotateY(-angFingerOpen);
-
-		modelToCameraStack.Push();
-		modelToCameraStack.Translate(glm::vec3(0.0f, 0.0f, lenFinger / 2.0f));
-		modelToCameraStack.Scale(glm::vec3(widthFinger / 2.0f, widthFinger/ 2.0f, lenFinger / 2.0f));
-		glUniformMatrix4fv(modelToCameraMatrixUnif, 1, GL_FALSE, glm::value_ptr(modelToCameraStack.Top()));
-		glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
-		modelToCameraStack.Pop();
-
-		{
-			//Draw right lower finger
-			modelToCameraStack.Push();
-			modelToCameraStack.Translate(glm::vec3(0.0f, 0.0f, lenFinger));
-			modelToCameraStack.RotateY(angLowerFinger);
-
-			modelToCameraStack.Push();
-			modelToCameraStack.Translate(glm::vec3(0.0f, 0.0f, lenFinger / 2.0f));
-			modelToCameraStack.Scale(glm::vec3(widthFinger / 2.0f, widthFinger/ 2.0f, lenFinger / 2.0f));
-			glUniformMatrix4fv(modelToCameraMatrixUnif, 1, GL_FALSE, glm::value_ptr(modelToCameraStack.Top()));
-			glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
-			modelToCameraStack.Pop();
-
-			modelToCameraStack.Pop();
-		}
-
-		modelToCameraStack.Pop();
-	}
-
-	void DrawWrist(MatrixStack &modelToCameraStack)
-	{
-		modelToCameraStack.Push();
-		modelToCameraStack.Translate(posWrist);
-		modelToCameraStack.RotateZ(angWristRoll);
-		modelToCameraStack.RotateX(angWristPitch);
-
-		modelToCameraStack.Push();
-		modelToCameraStack.Scale(glm::vec3(widthWrist / 2.0f, widthWrist/ 2.0f, lenWrist / 2.0f));
-		glUniformMatrix4fv(modelToCameraMatrixUnif, 1, GL_FALSE, glm::value_ptr(modelToCameraStack.Top()));
-		glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
-		modelToCameraStack.Pop();
-
-		DrawFingers(modelToCameraStack);
-
-		modelToCameraStack.Pop();
-	}
-
-	void DrawLowerArm(MatrixStack &modelToCameraStack)
-	{
-		modelToCameraStack.Push();
-		modelToCameraStack.Translate(posLowerArm);
-		modelToCameraStack.RotateX(angLowerArm);
-
-		modelToCameraStack.Push();
-		modelToCameraStack.Translate(glm::vec3(0.0f, 0.0f, lenLowerArm / 2.0f));
-		modelToCameraStack.Scale(glm::vec3(widthLowerArm / 2.0f, widthLowerArm / 2.0f, lenLowerArm / 2.0f));
-		glUniformMatrix4fv(modelToCameraMatrixUnif, 1, GL_FALSE, glm::value_ptr(modelToCameraStack.Top()));
-		glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
-		modelToCameraStack.Pop();
-
-		DrawWrist(modelToCameraStack);
-
-		modelToCameraStack.Pop();
-	}
-
-	void DrawUpperArm(MatrixStack &modelToCameraStack)
-	{
-		modelToCameraStack.Push();
-		modelToCameraStack.RotateX(angUpperArm);
-
-		{
-			modelToCameraStack.Push();
-			modelToCameraStack.Translate(glm::vec3(0.0f, 0.0f, (sizeUpperArm / 2.0f) - 1.0f));
-			modelToCameraStack.Scale(glm::vec3(1.0f, 1.0f, sizeUpperArm / 2.0f));
-			glUniformMatrix4fv(modelToCameraMatrixUnif, 1, GL_FALSE, glm::value_ptr(modelToCameraStack.Top()));
-			glDrawElements(GL_TRIANGLES, ARRAY_COUNT(indexData), GL_UNSIGNED_SHORT, 0);
-			modelToCameraStack.Pop();
-		}
-
-		DrawLowerArm(modelToCameraStack);
-
-		modelToCameraStack.Pop();
-	}
-
-	glm::vec3		posBase;
-	float			angBase;
-
-	glm::vec3		posBaseLeft, posBaseRight;
-	float			scaleBaseZ;
-
-	float			angUpperArm;
 	float			sizeUpperArm;
 
-	glm::vec3		posLowerArm;
-	float			angLowerArm;
 	float			lenLowerArm;
 	float			widthLowerArm;
 
-	glm::vec3		posWrist;
-	float			angWristRoll;
-	float			angWristPitch;
 	float			lenWrist;
 	float			widthWrist;
 
-	glm::vec3		posLeftFinger, posRightFinger;
-	float			angFingerOpen;
 	float			lenFinger;
 	float			widthFinger;
-	float			angLowerFinger;
+
+
+
+	Node scene;
+	Node base_left;
+	Node base_right;
+	Node upper_arm;
+	Node lower_arm;
+	Node wrist;
+	Node left_upper_finger;
+	Node left_lower_finger;
+	Node right_upper_finger;
+	Node right_lower_finger;
 };
 
 

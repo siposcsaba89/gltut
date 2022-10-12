@@ -1,0 +1,59 @@
+{
+    "version": 5,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 23,
+        "patch": 0
+    },
+    "include": [],
+    "configurePresets": [
+        {
+            "name": "default_clang",
+            "displayName": "Default Config Clang",
+            "description": "Default build using Ninja generator",
+            "generator": "Ninja Multi-Config",
+            "binaryDir": "${sourceDir}/build/default_clang",
+            "cacheVariables": {
+                "CMAKE_CONFIGURATION_TYPES": "Release;RelWithDebInfo;Debug",
+                "CMAKE_CXX_COMPILER": "clang++",
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": true
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "release_default_clang",
+            "configurePreset": "default_clang",
+            "configuration": "Release"
+        },
+        {
+            "name": "relwithdebinfo_default_clang",
+            "configurePreset": "default_clang",
+            "configuration": "RelWithDebInfo"
+        },
+        {
+            "name": "debug_default_clang",
+            "configurePreset": "default_clang",
+            "configuration": "Debug"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "default",
+            "configurePreset": "default",
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error",
+                "stopOnFailure": true
+            }
+        }
+    ],
+    "vendor": {
+        "example.com/ExampleIDE/1.0": {
+            "autoFormat": false
+        }
+    }
+}
