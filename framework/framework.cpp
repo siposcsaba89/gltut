@@ -13,7 +13,7 @@
 #include <GL/freeglut.h>
 #include "framework.h"
 #include "directories.h"
-
+#include <iostream>
 #ifndef _WIN32
 #define APIENTRY
 #endif
@@ -27,7 +27,7 @@ namespace Framework
 		std::stringstream shaderData;
 		shaderData << shaderFile.rdbuf();
 		shaderFile.close();
-
+		std::cout << shaderData.str() << std::endl;
 		try
 		{
 			return glutil::CompileShader(eShaderType, shaderData.str());

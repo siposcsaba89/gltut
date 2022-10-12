@@ -6,6 +6,7 @@
 #include <GL/freeglut.h>
 #include "../framework/framework.h"
 #include <glm/glm.hpp>
+#include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
 #define ARRAY_COUNT( array ) (sizeof( array ) / (sizeof( array[0] ) * (sizeof( array ) != sizeof(void*) || sizeof( array[0] ) <= sizeof(void*))))
@@ -115,38 +116,85 @@ void InitializeVertexBuffer()
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
-glm::vec3 StationaryOffset(float fElapsedTime)
+glm::mat4 StationaryOffset(float fElapsedTime)
 {
-	return glm::vec3(0.0f, 0.0f, -20.0f);
+	glm::mat4 ret(1.0f);
+	ret[3] = glm::vec4(0.0f, 0.0f, -20.0f, 1.0f);
+	return ret;
 }
 
-glm::vec3 OvalOffset(float fElapsedTime)
+glm::mat4 OvalOffset(float fElapsedTime)
 {
 	const float fLoopDuration = 3.0f;
 	const float fScale = 3.14159f * 2.0f / fLoopDuration;
 
 	float fCurrTimeThroughLoop = fmodf(fElapsedTime, fLoopDuration);
 
-	return glm::vec3(cosf(fCurrTimeThroughLoop * fScale) * 4.f,
-		sinf(fCurrTimeThroughLoop * fScale) * 6.f,
-		-20.0f);
+	glm::mat4 trans(1.0f);
+	trans[3] = glm::vec4(4.f, 4.f, -20.f, 1.0f);
+	glm::mat4 rotate(1.0f);
+	rotate[0][0] = cosf(fCurrTimeThroughLoop * fScale);
+	rotate[0][1] = sinf(fCurrTimeThroughLoop * fScale);
+	rotate[1][0] = -sinf(fCurrTimeThroughLoop * fScale);
+	rotate[1][1] = cosf(fCurrTimeThroughLoop * fScale);
+	glm::mat4 scale(1.0f);
+	scale[0][0] = 4.0f/6.0f;
+	
+	return scale * rotate* trans * glm::transpose(rotate) * glm::inverse(scale);
 }
 
-glm::vec3 BottomCircleOffset(float fElapsedTime)
+
+//glm::vec3 OvalOffset(float fElapsedTime)
+//{
+//	const float fLoopDuration = 3.0f;
+//	const float fScale = 3.14159f * 2.0f / fLoopDuration;
+//
+//	float fCurrTimeThroughLoop = fmodf(fElapsedTime, fLoopDuration);
+//
+//	return glm::vec3(cosf(fCurrTimeThroughLoop * fScale) * 4.f,
+//		sinf(fCurrTimeThroughLoop * fScale) * 6.f,
+//		-20.0f);
+//}
+
+glm::mat4 BottomCircleOffset(float fElapsedTime)
 {
 	const float fLoopDuration = 12.0f;
 	const float fScale = 3.14159f * 2.0f / fLoopDuration;
 
 	float fCurrTimeThroughLoop = fmodf(fElapsedTime, fLoopDuration);
 
-	return glm::vec3(cosf(fCurrTimeThroughLoop * fScale) * 5.f,
-		-3.5f,
-		sinf(fCurrTimeThroughLoop * fScale) * 5.f - 20.0f);
+	glm::mat4 trans(1.0f);
+	trans[3] = glm::vec4(5.f, -3.5f, 5.f, 1.0f);
+	glm::mat4 rotate(1.0f);
+	rotate[0][0] = cosf(fCurrTimeThroughLoop * fScale);
+	rotate[0][2] = sinf(fCurrTimeThroughLoop * fScale);
+	rotate[2][0] = -sinf(fCurrTimeThroughLoop * fScale);
+	rotate[2][2] = cosf(fCurrTimeThroughLoop * fScale);
+	glm::mat4 trans2(1.0f);
+	trans2[3] = glm::vec4(0.f, 0.0f, -20.f, 1.0f);
+
+
+	return trans2 * rotate * trans * glm::transpose(rotate);
+
+//	return glm::vec3(cosf(fCurrTimeThroughLoop * fScale) * 5.f,
+//		-3.5f,
+//		sinf(fCurrTimeThroughLoop * fScale) * 5.f - 20.0f);
 }
+//glm::vec3 BottomCircleOffset(float fElapsedTime)
+//{
+//	const float fLoopDuration = 12.0f;
+//	const float fScale = 3.14159f * 2.0f / fLoopDuration;
+//
+//	float fCurrTimeThroughLoop = fmodf(fElapsedTime, fLoopDuration);
+//
+//	return glm::vec3(cosf(fCurrTimeThroughLoop * fScale) * 5.f,
+//		-3.5f,
+//		sinf(fCurrTimeThroughLoop * fScale) * 5.f - 20.0f);
+//}
 
 struct Instance
 {
-	typedef glm::vec3(*OffsetFunc)(float);
+	typedef glm::mat4(*OffsetFunc)(float);
 
 	OffsetFunc CalcOffset;
 
@@ -154,7 +202,7 @@ struct Instance
 	{
 		glm::mat4 theMat(1.0f);
 
-		theMat[3] = glm::vec4(CalcOffset(fElapsedTime), 1.0f);
+		theMat = CalcOffset(fElapsedTime);
 
 		return theMat;
 	}
