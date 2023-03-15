@@ -198,7 +198,7 @@ void display()
 		if(g_bShowAmbient)
 		{
 			glUseProgram(whiteDiffuse.theProgram);
-			glUniform4f(whiteDiffuse.lightIntensityUnif, 0.8f, 0.8f, 0.8f, 1.0f);
+			glUniform4f(whiteDiffuse.lightIntensityUnif, 1.0f, 1.0f, 1.0f, 1.0f);
 			glUniform4f(whiteDiffuse.ambientIntensityUnif, 0.2f, 0.2f, 0.2f, 1.0f);
 			glUseProgram(vertexDiffuse.theProgram);
 			glUniform4f(vertexDiffuse.lightIntensityUnif, 0.8f, 0.8f, 0.8f, 1.0f);

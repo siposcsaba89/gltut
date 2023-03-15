@@ -12,6 +12,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <iostream>
 
 #define ARRAY_COUNT( array ) (sizeof( array ) / (sizeof( array[0] ) * (sizeof( array ) != sizeof(void*) || sizeof( array[0] ) <= sizeof(void*))))
 
@@ -173,33 +174,46 @@ public:
 
 	glm::fquat GetOrient() const
 	{
-		if(m_bIsAnimating)
-			return m_anim.GetOrient(g_Orients[m_ixCurrOrient], m_bSlerp);
+		if (m_bIsAnimating)
+		{
+			glm::fquat ret = g_Orients[m_ixCurrOrient];
+			for (auto& a : m_anims)
+			{
+				ret = a.GetOrient(ret, m_bSlerp);
+			}
+			return ret;
+		}
 		else
 			return g_Orients[m_ixCurrOrient];
 	}
 
-	bool IsAnimating() const {return m_bIsAnimating;}
+	bool IsAnimating() const { return m_bIsAnimating; }
 
 	void UpdateTime()
 	{
-		if(m_bIsAnimating)
+		if (m_bIsAnimating)
 		{
-			bool bIsFinished = m_anim.UpdateTime();
-			if(bIsFinished)
+			bool bIsFinished = m_anims.front().UpdateTime();
+			if (bIsFinished)
+			{
+				m_ixCurrOrient = m_anims.front().GetFinalIx();
+				m_anims.pop_front();
+			}
+			if (m_anims.empty())
 			{
 				m_bIsAnimating = false;
-				m_ixCurrOrient = m_anim.GetFinalIx();
 			}
 		}
 	}
 
 	void AnimateToOrient(int ixDestination)
 	{
-		if(m_ixCurrOrient == ixDestination)
+		std::cout << "add anim" << std::endl;
+		if (m_ixCurrOrient == ixDestination)
 			return;
-
-		m_anim.StartAnimation(ixDestination, 1.0f);
+		m_anims.push_back(Animation());
+		m_anims.back().StartAnimation(ixDestination, 1.0f);
+		//m_anim.StartAnimation(ixDestination, 1.0f);
 		m_bIsAnimating = true;
 	}
 
@@ -213,9 +227,9 @@ private:
 			return m_currTimer.Update();
 		}
 
-		glm::fquat GetOrient(const glm::fquat &initial, bool bSlerp) const
+		glm::fquat GetOrient(const glm::fquat& initial, bool bSlerp) const
 		{
-			if(bSlerp)
+			if (bSlerp)
 			{
 				return Slerp(initial, g_Orients[m_ixFinalOrient], m_currTimer.GetAlpha());
 			}
@@ -233,7 +247,7 @@ private:
 			m_currTimer = Framework::Timer(Framework::Timer::TT_SINGLE, fDuration);
 		}
 
-		int GetFinalIx() const {return m_ixFinalOrient;}
+		int GetFinalIx() const { return m_ixFinalOrient; }
 
 	private:
 		int m_ixFinalOrient;
@@ -244,7 +258,7 @@ private:
 	int m_ixCurrOrient;
 	bool m_bSlerp;
 
-	Animation m_anim;
+	std::deque<Animation> m_anims;
 };
 
 Orientation g_orient;
@@ -303,8 +317,8 @@ void reshape (int w, int h)
 
 void ApplyOrientation(int iIndex)
 {
-	if(!g_orient.IsAnimating())
-		g_orient.AnimateToOrient(iIndex);
+	//if(!g_orient.IsAnimating())
+	g_orient.AnimateToOrient(iIndex);
 }
 
 

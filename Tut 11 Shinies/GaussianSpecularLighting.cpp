@@ -290,7 +290,7 @@ public:
 	MaterialParams()
 		: m_fPhongExponent(4.0f)
 		, m_fBlinnExponent(4.0f)
-		, m_fGaussianRoughness(0.5f)
+		, m_fGaussianRoughness(0.1f)
 	{}
 
 	operator float() const

@@ -173,4 +173,7 @@ void keyboard(unsigned char key, int x, int y)
 }
 
 
-unsigned int defaults(unsigned int displayMode, int &width, int &height) {return displayMode;}
+unsigned int defaults(unsigned int displayMode, int &width, int &height) {
+	width = 1280;
+	height = 720;
+	return displayMode;}
